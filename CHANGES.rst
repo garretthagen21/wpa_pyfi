@@ -3,9 +3,13 @@ Changelog
 
 0.5.3
 ^^^^^
-:release-date: unknown
+:release-date: 2026-05-19
 
-- Fixed wrong conversion from bytes to str for Python 3.x. str(b'') doesn't return "" but "b''". Now using bytes.decode instead.
+- ``Cell.all()`` accepts a ``scan_method`` parameter (``'iwlist'`` or ``'wpa_cli'``).
+  The ``'wpa_cli'`` path uses ``wpa_cli scan`` + ``wpa_cli scan_results`` instead of
+  ``/sbin/iwlist``, avoiding conflicts with wpa_supplicant during active association.
+- ``Network.activate()`` now returns the ``wpa_cli`` output string on success instead of
+  ``None``, allowing callers to verify the reconfigure succeeded.
 
 0.5.2
 ^^^^^

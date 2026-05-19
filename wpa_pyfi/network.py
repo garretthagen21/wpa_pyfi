@@ -176,6 +176,7 @@ class Network(object):
         output = self._reload_wpa_client()
         if 'OK' not in output:
             raise ConnectionError("An error occured during wpa_cli reconfigure %r\n\nwpa_cli Output:" + output % self)
+        return output
 
     def get_connection_data(self):
         ifconfig_output = subprocess.check_output(['ifconfig']).decode('utf-8')

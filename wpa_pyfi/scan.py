@@ -2,10 +2,13 @@ from __future__ import division
 
 import re
 import textwrap
+import time
 
 import wpa_pyfi.subprocess_compat as subprocess
 from wpa_pyfi.utils import db2dbm
 from wpa_pyfi.exceptions import InterfaceError
+
+_bssid_re = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
 
 
 class Cell(object):
@@ -30,10 +33,16 @@ class Cell(object):
         return 'Cell(ssid={ssid})'.format(**vars(self))
 
     @classmethod
-    def all(cls, interface):
+    def all(cls, interface, scan_method='iwlist'):
         """
-        Returns a list of all cells extracted from the output of iwlist.
+        Returns a list of all cells.
+
+        scan_method:
+          'iwlist'  — use /sbin/iwlist (default; may conflict with wpa_supplicant)
+          'wpa_cli' — ask wpa_supplicant to scan via wpa_cli (safe to call while connected)
         """
+        if scan_method == 'wpa_cli':
+            return cls._all_via_wpa_cli(interface)
         try:
             iwlist_scan = subprocess.check_output(['/sbin/iwlist', interface, 'scan'],
                                                   stderr=subprocess.STDOUT)
@@ -43,6 +52,43 @@ class Cell(object):
             iwlist_scan = iwlist_scan.decode('utf-8')
         cells = map(Cell.from_string, cells_re.split(iwlist_scan)[1:])
 
+        return cells
+
+    @classmethod
+    def _all_via_wpa_cli(cls, interface):
+        """Scan via wpa_cli so the request goes through wpa_supplicant's driver path."""
+        try:
+            subprocess.check_output(['wpa_cli', '-i', interface, 'scan'],
+                                    stderr=subprocess.STDOUT)
+            time.sleep(2)
+            output = subprocess.check_output(['wpa_cli', '-i', interface, 'scan_results'],
+                                             stderr=subprocess.STDOUT).decode('utf-8')
+        except subprocess.CalledProcessError:
+            return []
+
+        cells = []
+        for line in output.splitlines():
+            parts = line.split('\t')
+            if len(parts) < 5:
+                continue
+            if not _bssid_re.match(parts[0]):
+                continue  # skip header / status lines
+            try:
+                cell = Cell()
+                cell.address = parts[0]
+                cell.signal = int(parts[2])
+                flags = parts[3]
+                cell.ssid = parts[4] if parts[4] else None
+                cell.encrypted = '[WPA' in flags or '[WEP' in flags
+                if '[WPA2' in flags:
+                    cell.encryption_type = 'wpa2'
+                elif '[WPA' in flags:
+                    cell.encryption_type = 'wpa'
+                elif '[WEP' in flags:
+                    cell.encryption_type = 'wep'
+                cells.append(cell)
+            except (ValueError, IndexError):
+                continue
         return cells
 
     @classmethod

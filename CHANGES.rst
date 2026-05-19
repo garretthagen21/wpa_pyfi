@@ -1,6 +1,17 @@
 Changelog
 =========
 
+0.5.4
+^^^^^
+:release-date: 2026-05-19
+
+- ``Network.save()`` now calls ``delete(disconnect_immediately=False)`` when overwriting an
+  existing entry, preventing spurious ``wpa_cli reconfigure`` calls during
+  ``reconfigure_priority()`` that caused wpa_supplicant to revert to the previously
+  connected network.
+- ``Network.activate()`` now calls ``wpa_cli reassociate`` after reconfiguring, forcing
+  wpa_supplicant to drop the current connection and reconnect to the highest-priority network.
+
 0.5.3
 ^^^^^
 :release-date: 2026-05-19

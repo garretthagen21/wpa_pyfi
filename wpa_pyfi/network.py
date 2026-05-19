@@ -82,7 +82,7 @@ class Network(object):
                     self) + " already exists in " + supplicant_file + " and overwrite is False. Ignoring save")
                 return
             else:
-                existing_network.delete()
+                existing_network.delete(disconnect_immediately=False)
 
         # Save the file
         with open(supplicant_file, 'a') as wpa_config:
@@ -176,6 +176,9 @@ class Network(object):
         output = self._reload_wpa_client()
         if 'OK' not in output:
             raise ConnectionError("An error occured during wpa_cli reconfigure %r\n\nwpa_cli Output:" + output % self)
+        # Force wpa_supplicant to drop the current connection and pick the highest-priority network
+        subprocess.check_output(['wpa_cli', '-i', self.interface, 'reassociate'],
+                                stderr=subprocess.STDOUT)
         return output
 
     def get_connection_data(self):
